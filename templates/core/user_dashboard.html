@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Portal do Cliente</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50">
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                 <div class="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                   {{ client_name|slice:":1" }}
+                 </div>
+                 <span class="font-semibold text-gray-800">Portal do Cliente</span>
+            </div>
+            <form action="{% url 'logout' %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="text-sm text-gray-500 hover:text-gray-800 transition">Sair</button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <div class="md:col-span-2 space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Olá, {{ client_name }}</h1>
+                <p class="text-gray-500 mb-8">Aqui estão os seus dados atualizados.</p>
+
+                {% if data %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {% for item in data %}
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 hover:border-blue-200 transition">
+                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">{{ item.label }}</p>
+                        <p class="text-lg font-medium text-gray-800 break-words">{{ item.value }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                    <p class="text-gray-500">Nenhum dado disponível no momento.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="md:col-span-1">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 h-full flex flex-col opacity-75">
+                <div class="mb-4">
+                    <h2 class="font-bold text-gray-900 flex items-center gap-2">
+                        <span class="text-2xl">✨</span> Assistente
+                    </h2>
+                    <p class="text-sm text-gray-500 mt-1">Integração em breve.</p>
+                </div>
+                <div class="flex-1 bg-slate-50 rounded-xl p-4 min-h-[200px] border border-slate-100 flex items-center justify-center">
+                    <p class="text-xs text-gray-400 text-center">IA será ativada na próxima atualização.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

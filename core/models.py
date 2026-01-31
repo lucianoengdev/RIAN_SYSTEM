@@ -11,10 +11,32 @@ class ClientProfile(models.Model):
     # Configurações do Cliente
     is_active_client = models.BooleanField(default=True, verbose_name="Cliente Ativo")
     plan_type = models.CharField(max_length=50, default='Standard', verbose_name="Plano Contratado")
-    
-    # O "Coração" do sistema: Aqui guardaremos os dados do Excel
-    # Exemplo de estrutura: {"Faturamento": "R$ 50k", "Status": "Em dia"}
+    excel_file = models.FileField(upload_to='client_excels/', blank=True, null=True, verbose_name="Upload da Planilha (.xlsx)")
     data_snapshot = models.JSONField(default=dict, blank=True, verbose_name="Dados do Dashboard (JSON)")
+    
+    def save(self, *args, **kwargs):
+        # Se houver um arquivo excel, processamos ele antes de salvar
+        if self.excel_file:
+            try:
+                # Ler o Excel. 
+                # header=8 indica que o cabeçalho está na linha 9 (baseado nos seus CSVs que começam com metadados)
+                # Se quiser a planilha INTEIRA crua, mude para header=None
+                df = pd.read_excel(self.excel_file.file, header=8) 
+                
+                # Limpeza: Substituir valores vazios (NaN) por string vazia ""
+                df = df.fillna('')
+                
+                # Converter para formato JSON de tabela
+                # Orient='split' separa colunas e dados, facilitando o loop no HTML
+                data = df.to_dict(orient='split')
+                
+                # Salvamos no campo JSON
+                self.data_snapshot = data
+            except Exception as e:
+                print(f"Erro ao processar Excel: {e}")
+                # Opcional: Salvar o erro no JSON para debug
+                
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Perfil de {self.user.username}"

@@ -4,32 +4,39 @@ from .models import ClientProfile
 
 @login_required
 def dashboard_view(request):
-    user = request.user
-    
-    # Lógica 1: Se for o ADMIN (Moderador)
-    if user.is_staff or user.is_superuser:
-        # Pega todos os clientes para mostrar um resumão
-        all_clients = ClientProfile.objects.all()
+    try:
+        profile = request.user.clientprofile
+    except:
+        profile = ClientProfile.objects.create(user=request.user)
+
+    data = profile.wine_data
+    context = {
+        'headers': data.get('headers', []),
+        'rows': data.get('rows', []),
+    }
+    return render(request, 'core/universal_dashboard.html', context)
+
+@login_required
+def add_single_item(request):
+    if request.method == 'POST':
+        profile = request.user.clientprofile
+        current_data = profile.wine_data
         
-        # Aqui você fará a "soma geral" que pediu
-        total_clients = all_clients.count()
+        headers = current_data.get('headers', [])
+        new_row = []
         
-        context = {
-            'is_admin': True,
-            'clients': all_clients,
-            'total_clients': total_clients
-        }
-        return render(request, 'core/admin_dashboard.html', context)
-    
-    # Lógica 2: Se for CLIENTE comum
-    else:
-        # Acessa apenas os dados DELE
-        profile = user.profile
-        data = profile.data_snapshot # Aqui estarão os dados do Excel
+        # Pega os dados do formulário na ordem correta das colunas
+        for header in headers:
+            value = request.POST.get(header, '')
+            new_row.append(value)
         
-        context = {
-            'is_admin': False,
-            'data': data,
-            'client_name': user.first_name
-        }
-        return render(request, 'core/user_dashboard.html', context)
+        # Adiciona a nova linha
+        if 'rows' in current_data:
+            current_data['rows'].insert(0, new_row) # Adiciona no topo
+        else:
+            current_data['rows'] = [new_row]
+            
+        profile.wine_data = current_data
+        profile.save()
+        
+    return redirect('dashboard')

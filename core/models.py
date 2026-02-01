@@ -2,44 +2,55 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.core.exceptions import ObjectDoesNotExist
+import pandas as pd
+import json
+import io
 
 class ClientProfile(models.Model):
-    # Relacionamento 1 para 1 com o sistema de login padrão do Django
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    
-    # Configurações do Cliente
-    is_active_client = models.BooleanField(default=True, verbose_name="Cliente Ativo")
-    plan_type = models.CharField(max_length=50, default='Standard', verbose_name="Plano Contratado")
-    excel_file = models.FileField(upload_to='client_excels/', blank=True, null=True, verbose_name="Upload da Planilha (.xlsx)")
-    data_snapshot = models.JSONField(default=dict, blank=True, verbose_name="Dados do Dashboard (JSON)")
-    
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    # Arquivo CSV bruto
+    csv_file = models.FileField(upload_to='client_csvs/', blank=True, null=True, verbose_name="Upload CSV (Lote)")
+    # Onde os dados ficam salvos e prontos para uso
+    wine_data = models.JSONField(default=dict, blank=True, verbose_name="Banco de Dados (JSON)")
+
     def save(self, *args, **kwargs):
-        # Se houver um arquivo excel, processamos ele antes de salvar
-        if self.excel_file:
+        # Se um NOVO csv foi enviado, processamos ele
+        if self.csv_file and hasattr(self.csv_file, 'file'):
             try:
-                # Ler o Excel. 
-                # header=8 indica que o cabeçalho está na linha 9 (baseado nos seus CSVs que começam com metadados)
-                # Se quiser a planilha INTEIRA crua, mude para header=None
-                df = pd.read_excel(self.excel_file.file, header=8) 
+                # Ler o CSV. 'header=8' pula as 8 primeiras linhas de metadados dos seus arquivos
+                # Se o arquivo for diferente, o código tenta achar a linha que começa com "Vinho"
+                df = pd.read_csv(self.csv_file.file, header=8) 
                 
-                # Limpeza: Substituir valores vazios (NaN) por string vazia ""
-                df = df.fillna('')
+                # Se a linha 8 não for o cabeçalho, procura a linha certa
+                if 'Vinho' not in df.columns and 'Pais' not in df.columns:
+                     self.csv_file.file.seek(0)
+                     # Lê as primeiras 20 linhas para achar onde começa
+                     temp_df = pd.read_csv(self.csv_file.file, header=None, nrows=20)
+                     idx = temp_df[temp_df.apply(lambda x: x.astype(str).str.contains('Vinho|Pais').any(), axis=1)].index
+                     if not idx.empty:
+                         self.csv_file.file.seek(0)
+                         df = pd.read_csv(self.csv_file.file, header=idx[0])
+
+                # LIMPEZA CRÍTICA: Seus CSVs têm muitas colunas vazias "Unnamed" por causa da formatação
+                # Remove colunas que tenham nome "Unnamed" ou estejam vazias
+                df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+                df = df.dropna(how='all') # Remove linhas totalmente vazias
+                df = df.fillna('') # Troca NaN por vazio
                 
-                # Converter para formato JSON de tabela
-                # Orient='split' separa colunas e dados, facilitando o loop no HTML
-                data = df.to_dict(orient='split')
-                
-                # Salvamos no campo JSON
-                self.data_snapshot = data
+                # Transforma em estrutura para o HTML
+                self.wine_data = {
+                    "headers": list(df.columns),
+                    "rows": df.values.tolist()
+                }
+                # Limpa o campo de arquivo para não reprocessar no futuro
+                self.csv_file = None 
             except Exception as e:
-                print(f"Erro ao processar Excel: {e}")
-                # Opcional: Salvar o erro no JSON para debug
-                
+                print(f"Erro ao processar CSV: {e}")
+        
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Perfil de {self.user.username}"
+        return self.user.username
 
 # Cria automaticamente um perfil quando você cria um User no admin
 @receiver(post_save, sender=User)

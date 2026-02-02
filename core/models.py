@@ -1,66 +1,52 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-import pandas as pd
-import json
-import io
+from django.utils import timezone
 
-class ClientProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    # Arquivo CSV bruto
-    csv_file = models.FileField(upload_to='client_csvs/', blank=True, null=True, verbose_name="Upload CSV (Lote)")
-    # Onde os dados ficam salvos e prontos para uso
-    wine_data = models.JSONField(default=dict, blank=True, verbose_name="Banco de Dados (JSON)")
-
-    def save(self, *args, **kwargs):
-        # Se um NOVO csv foi enviado, processamos ele
-        if self.csv_file and hasattr(self.csv_file, 'file'):
-            try:
-                # Ler o CSV. 'header=8' pula as 8 primeiras linhas de metadados dos seus arquivos
-                # Se o arquivo for diferente, o código tenta achar a linha que começa com "Vinho"
-                df = pd.read_csv(self.csv_file.file, header=8) 
-                
-                # Se a linha 8 não for o cabeçalho, procura a linha certa
-                if 'Vinho' not in df.columns and 'Pais' not in df.columns:
-                     self.csv_file.file.seek(0)
-                     # Lê as primeiras 20 linhas para achar onde começa
-                     temp_df = pd.read_csv(self.csv_file.file, header=None, nrows=20)
-                     idx = temp_df[temp_df.apply(lambda x: x.astype(str).str.contains('Vinho|Pais').any(), axis=1)].index
-                     if not idx.empty:
-                         self.csv_file.file.seek(0)
-                         df = pd.read_csv(self.csv_file.file, header=idx[0])
-
-                # LIMPEZA CRÍTICA: Seus CSVs têm muitas colunas vazias "Unnamed" por causa da formatação
-                # Remove colunas que tenham nome "Unnamed" ou estejam vazias
-                df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-                df = df.dropna(how='all') # Remove linhas totalmente vazias
-                df = df.fillna('') # Troca NaN por vazio
-                
-                # Transforma em estrutura para o HTML
-                self.wine_data = {
-                    "headers": list(df.columns),
-                    "rows": df.values.tolist()
-                }
-                # Limpa o campo de arquivo para não reprocessar no futuro
-                self.csv_file = None 
-            except Exception as e:
-                print(f"Erro ao processar CSV: {e}")
-        
-        super().save(*args, **kwargs)
+class Wine(models.Model):
+    # Vínculo com o Dono da Adega
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wines')
+    
+    # Dados de Entrada (Obrigatórios)
+    name = models.CharField(max_length=255, verbose_name="Nome do Vinho")
+    vintage = models.CharField(max_length=4, verbose_name="Safra") # Char pois pode ser 'NV' (Non-Vintage)
+    
+    # Dados Enriquecidos (Preenchidos pela API ou Importação)
+    country = models.CharField(max_length=100, default='Outros', verbose_name="País")
+    region = models.CharField(max_length=100, blank=True, null=True, verbose_name="Região")
+    type = models.CharField(max_length=50, default='Tinto', verbose_name="Tipo (Tinto/Branco/etc)")
+    
+    # Dados Financeiros e de Gestão
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Preço Estimado")
+    quantity = models.IntegerField(default=1, verbose_name="Estoque")
+    
+    # Notas e Consumo
+    score_rp = models.CharField(max_length=10, blank=True, null=True, verbose_name="Nota Robert Parker")
+    score_ws = models.CharField(max_length=10, blank=True, null=True, verbose_name="Nota Wine Spectator")
+    drink_window_start = models.IntegerField(blank=True, null=True, verbose_name="Beber de")
+    drink_window_end = models.IntegerField(blank=True, null=True, verbose_name="Beber até")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.user.username
+        return f"{self.name} ({self.vintage})"
 
-# Cria automaticamente um perfil quando você cria um User no admin
-@receiver(post_save, sender=User)
-def create_or_update_user_profile(sender, instance, created, **kwargs):
-    """
-    Se o usuário acabou de ser criado, cria o perfil.
-    Se o usuário já existe mas não tem perfil (caso do seu erro), cria o perfil agora.
-    Se já tem perfil, apenas salva.
-    """
-    try:
-        instance.profile.save()
-    except ObjectDoesNotExist:
-        ClientProfile.objects.create(user=instance)
+    class Meta:
+        ordering = ['country', 'name']
+
+# Log para o Moderador (Histórico)
+class AuditLog(models.Model):
+    ACTIONS = (
+        ('ADD', 'Adicionou Vinho'),
+        ('REMOVE', 'Removeu Vinho'),
+        ('CONSUME', 'Bebeu/Baixou'),
+        ('IMPORT', 'Importação em Massa'),
+    )
+    
+    moderator_only = models.BooleanField(default=True) # Apenas admin vê
+    user = models.ForeignKey(User, on_delete=models.CASCADE) # De quem é a adega
+    action = models.CharField(max_length=20, choices=ACTIONS)
+    details = models.TextField() # Ex: "Adicionou Latour 1990 (R$ 5000)"
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.action} - {self.timestamp}"

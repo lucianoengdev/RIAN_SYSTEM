@@ -1,23 +1,22 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.contrib.auth.models import User
-from .models import ClientProfile
+from .models import Wine, AuditLog
 
-# Define como o perfil aparece dentro da página do Usuário no Admin
-class ClientProfileInline(admin.StackedInline):
-    model = ClientProfile
-    can_delete = False
-    verbose_name_plural = 'Dados do Cliente (Excel/Dashboard)'
+@admin.register(Wine)
+class WineAdmin(admin.ModelAdmin):
+    # O que aparece na lista de vinhos do Admin
+    list_display = ('name', 'vintage', 'country', 'type', 'quantity', 'price', 'user')
+    # Filtros laterais para você achar rápido
+    list_filter = ('country', 'type', 'user')
+    # Barra de pesquisa (busca por nome ou região)
+    search_fields = ('name', 'region')
 
-# Reconfigura o Admin de Usuário padrão para incluir seus dados
-class UserAdmin(BaseUserAdmin):
-    inlines = (ClientProfileInline,)
-    list_display = ('username', 'first_name', 'get_plan', 'is_staff')
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    # Log de segurança para você ver quem fez o que
+    list_display = ('timestamp', 'user', 'action', 'details')
+    list_filter = ('action', 'user')
+    # O log é apenas leitura (ninguém pode alterar o passado)
+    readonly_fields = ('timestamp', 'user', 'action', 'details')
 
-    def get_plan(self, instance):
-        return instance.profile.plan_type
-    get_plan.short_description = 'Plano'
-
-# Registra tudo
-admin.site.unregister(User)
-admin.site.register(User, UserAdmin)
+    def has_add_permission(self, request):
+        return False

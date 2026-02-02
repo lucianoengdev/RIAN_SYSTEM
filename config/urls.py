@@ -17,11 +17,15 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from core.views import dashboard_view
+from core import views
 
 urlpatterns = [
-    path('admin/', admin.site.urls), # Seu painel de controle mestre
+    path('admin/', admin.site.urls),
     path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
-    path('', dashboard_view, name='dashboard'), # A home define para onde vai
+    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
+    
+    path('', views.dashboard, name='dashboard'),
+    path('add/', views.add_wine, name='add_wine'),
+    path('delete/<int:wine_id>/', views.delete_wine, name='delete_wine'),
+    path('import/', views.import_legacy, name='import_legacy'),
 ]

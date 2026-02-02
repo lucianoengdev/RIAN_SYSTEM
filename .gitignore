@@ -1,12 +1,42 @@
-# Byte-compiled / optimized / DLL files
+# --- Python & Django Core ---
 __pycache__/
 *.py[cod]
 *$py.class
-/config/__pycache__
-/core/__pycache__
-
-# Django stuff:
 *.log
-local_settings.py
+*.pot
+*.pyc
+
+# --- Banco de Dados Local ---
+# Ignoramos o DB local para não sobrescrever dados de produção com testes
 db.sqlite3
 db.sqlite3-journal
+
+# --- Ambientes Virtuais ---
+# Nunca suba a pasta venv, cada máquina cria a sua
+venv/
+env/
+.venv/
+.env
+
+# --- IDEs e Sistema Operacional ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Arquivos de Mídia e Uploads (DADOS DO USUÁRIO) ---
+# Ignoramos as pastas onde os arquivos de Excel/CSV dos clientes são salvos
+# O Git guarda código, não dados de clientes.
+media/
+client_excels/
+client_csvs/
+
+# --- Arquivos Temporários de Migração ---
+# Mantemos a pasta migrations e o __init__.py, mas ignoramos caches dentro dela
+core/migrations/__pycache__/
+
+# --- Node/Frontend (Caso tenha resquícios do React) ---
+node_modules/
+build/
+dist/
+.env.local

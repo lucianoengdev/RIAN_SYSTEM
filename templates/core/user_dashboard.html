@@ -28,25 +28,32 @@
     <main class="max-w-7xl mx-auto p-6">
         
         {% if is_admin %}
-        <div class="mb-8 bg-gray-900 text-gray-300 p-4 rounded-lg text-sm font-mono">
-            <h3 class="text-white font-bold mb-2 uppercase border-b border-gray-700 pb-1">Log do Moderador</h3>
-            <ul class="space-y-1 h-32 overflow-y-auto">
-                {% for log in logs %}
-                <li><span class="text-green-400">[{{ log.timestamp|date:"d/m H:i" }}]</span> <b>{{ log.user.username }}</b>: {{ log.details }} ({{ log.get_action_display }})</li>
-                {% empty %}
-                <li>Nenhuma atividade recente.</li>
-                {% endfor %}
-            </ul>
-            
             <div class="mt-4 pt-4 border-t border-gray-700">
-                <p class="mb-2">Importar Legado (CSV):</p>
-                <form action="{% url 'import_legacy' %}" method="post" enctype="multipart/form-data" class="flex gap-2">
+                <p class="mb-2 font-bold text-white">Importação Massiva (Admin):</p>
+                
+                <form action="{% url 'import_legacy' %}" method="post" enctype="multipart/form-data" class="flex flex-col gap-3 bg-gray-800 p-3 rounded">
                     {% csrf_token %}
-                    <input type="file" name="csv_file" class="text-xs text-gray-400">
-                    <button type="submit" class="bg-blue-700 hover:bg-blue-600 px-3 py-1 rounded text-white text-xs">Processar</button>
+                    
+                    <div class="flex flex-col">
+                        <label class="text-xs text-gray-400 mb-1">Selecione o Cliente Destino:</label>
+                        <select name="target_user" class="text-black text-sm rounded p-1" required>
+                            <option value="">-- Escolha um Cliente --</option>
+                            {% for u in all_users %}
+                            <option value="{{ u.id }}">{{ u.username }} ({{ u.first_name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="flex flex-col">
+                        <label class="text-xs text-gray-400 mb-1">Arquivo CSV (Use o LIMPO_...):</label>
+                        <input type="file" name="csv_file" class="text-xs text-gray-300" required>
+                    </div>
+
+                    <button type="submit" class="bg-green-700 hover:bg-green-600 px-4 py-2 rounded text-white text-sm font-bold self-start">
+                        Processar Importação
+                    </button>
                 </form>
             </div>
-        </div>
         {% endif %}
 
         <div class="flex justify-between items-end mb-6">

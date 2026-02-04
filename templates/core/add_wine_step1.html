@@ -1,0 +1,42 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header">
+                <h5>Adicionar Vinho (Passo 1/2)</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Nome do Vinho</label>
+                        <input type="text" name="name" class="form-control" placeholder="Ex: Chateau Margaux" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Safra</label>
+                            <input type="text" name="vintage" class="form-control" placeholder="Ex: 2015" required>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Tipo</label>
+                            <select name="type" class="form-select">
+                                <option value="Tinto">Tinto</option>
+                                <option value="Branco">Branco</option>
+                                <option value="Espumante">Espumante</option>
+                                <option value="Rosé">Rosé</option>
+                                <option value="Fortificado">Fortificado</option>
+                                <option value="Sobremesa">Sobremesa</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-wine w-100">Buscar Informações</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

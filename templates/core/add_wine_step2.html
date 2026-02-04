@@ -1,0 +1,49 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h3 class="mb-4">Confirme o Vinho Encontrado</h3>
+    
+    <form method="POST">
+        {% csrf_token %}
+        <div class="list-group mb-4">
+            
+            {% for candidate in candidates %}
+            <label class="list-group-item d-flex gap-3">
+                <input class="form-check-input flex-shrink-0" type="radio" name="selected_index" value="{{ forloop.counter0 }}" {% if forloop.first %}checked{% endif %}>
+                <span class="pt-1 form-checked-content w-100">
+                    <strong>{{ candidate.name }} ({{ candidate.vintage }})</strong>
+                    <br>
+                    <small class="text-muted">
+                        País: {{ candidate.country }} | Região: {{ candidate.region }} | 
+                        RP: {{ candidate.score_rp }} | WS: {{ candidate.score_ws }}
+                    </small>
+                </span>
+                <span class="text-end text-success fw-bold">
+                    {% if candidate.confidence > 0.8 %}Alta Precisão{% else %}Similar{% endif %}
+                </span>
+            </label>
+            {% endfor %}
+
+            <label class="list-group-item d-flex gap-3 bg-light">
+                <input class="form-check-input flex-shrink-0" type="radio" name="selected_index" value="manual">
+                <span class="pt-1 form-checked-content">
+                    <strong>Nenhum desses (Criar manualmente)</strong>
+                    <br>
+                    <small class="text-muted">Usará apenas o nome "{{ form_data.name }}" e safra "{{ form_data.vintage }}" sem dados extras.</small>
+                </span>
+            </label>
+        </div>
+
+        <div class="row align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Quantidade Inicial</label>
+                <input type="number" name="quantity" value="1" min="1" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-success w-100">Salvar Vinho</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

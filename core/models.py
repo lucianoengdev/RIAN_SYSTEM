@@ -1,52 +1,63 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
+import datetime
 
 class Wine(models.Model):
-    # Vínculo com o Dono da Adega
+    WINE_TYPES = (
+        ('Tinto', 'Tinto'),
+        ('Branco', 'Branco'),
+        ('Rosé', 'Rosé'),
+        ('Espumante', 'Espumante'),
+        ('Fortificado', 'Fortificado'),
+        ('Sobremesa', 'Sobremesa'),
+    )
+
+    # Vínculo: De quem é este vinho?
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wines')
     
-    # Dados de Entrada (Obrigatórios)
+    # Dados de Entrada (Obrigatórios pelo Cliente)
     name = models.CharField(max_length=255, verbose_name="Nome do Vinho")
-    vintage = models.CharField(max_length=4, verbose_name="Safra") # Char pois pode ser 'NV' (Non-Vintage)
+    vintage = models.CharField(max_length=10, verbose_name="Safra") # Char para aceitar "NV"
+    type = models.CharField(max_length=50, choices=WINE_TYPES, default='Tinto', verbose_name="Tipo")
     
-    # Dados Enriquecidos (Preenchidos pela API ou Importação)
+    # Dados Enriquecidos (Preenchidos pela API/Serviço ou Manualmente)
     country = models.CharField(max_length=100, default='Outros', verbose_name="País")
-    region = models.CharField(max_length=100, blank=True, null=True, verbose_name="Região")
-    type = models.CharField(max_length=50, default='Tinto', verbose_name="Tipo (Tinto/Branco/etc)")
+    region = models.CharField(max_length=100, blank=True, null=True, verbose_name="Região (ex: Bordeaux)")
+    sub_region = models.CharField(max_length=100, blank=True, null=True, verbose_name="Sub-Região (ex: Pauillac)")
     
-    # Dados Financeiros e de Gestão
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Preço Estimado")
-    quantity = models.IntegerField(default=1, verbose_name="Estoque")
+    # Dados Financeiros e Estoque
+    # O cliente edita Quantity. O Admin edita Price.
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Preço (Unit)")
+    quantity = models.IntegerField(default=1, validators=[MinValueValidator(0)], verbose_name="Garrafas")
     
-    # Notas e Consumo
-    score_rp = models.CharField(max_length=10, blank=True, null=True, verbose_name="Nota Robert Parker")
-    score_ws = models.CharField(max_length=10, blank=True, null=True, verbose_name="Nota Wine Spectator")
-    drink_window_start = models.IntegerField(blank=True, null=True, verbose_name="Beber de")
-    drink_window_end = models.IntegerField(blank=True, null=True, verbose_name="Beber até")
+    # Notas e Inteligência
+    score_rp = models.CharField(max_length=10, blank=True, null=True, verbose_name="RP")
+    score_ws = models.CharField(max_length=10, blank=True, null=True, verbose_name="WS")
+    drink_from = models.IntegerField(blank=True, null=True, verbose_name="Beber de")
+    drink_to = models.IntegerField(blank=True, null=True, verbose_name="Beber até")
     
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def total_value(self):
+        return self.price * self.quantity
 
     def __str__(self):
         return f"{self.name} ({self.vintage})"
 
     class Meta:
-        ordering = ['country', 'name']
+        ordering = ['country', 'region', 'name']
+        verbose_name = "Vinho"
+        verbose_name_plural = "Vinhos"
 
-# Log para o Moderador (Histórico)
 class AuditLog(models.Model):
     ACTIONS = (
-        ('ADD', 'Adicionou Vinho'),
-        ('REMOVE', 'Removeu Vinho'),
-        ('CONSUME', 'Bebeu/Baixou'),
-        ('IMPORT', 'Importação em Massa'),
+        ('ADD', 'Adicionou'),
+        ('REMOVE', 'Removeu'),
+        ('EDIT', 'Editou'),
     )
-    
-    moderator_only = models.BooleanField(default=True) # Apenas admin vê
-    user = models.ForeignKey(User, on_delete=models.CASCADE) # De quem é a adega
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     action = models.CharField(max_length=20, choices=ACTIONS)
-    details = models.TextField() # Ex: "Adicionou Latour 1990 (R$ 5000)"
+    details = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.user.username} - {self.action} - {self.timestamp}"

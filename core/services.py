@@ -1,38 +1,49 @@
 import random
+from difflib import SequenceMatcher
 
-def fetch_wine_data(name, vintage):
+def similar(a, b):
+    """Retorna uma taxa de similaridade entre 0 e 1 entre duas strings"""
+    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+def search_wine_api(query_name, query_vintage):
     """
-    Simula a busca em uma API externa (Wine.com).
-    No futuro, você colocará aqui sua API KEY real.
+    Simula a busca nas APIs do Wine.com/Robert Parker.
+    Retorna uma LISTA de candidatos para o usuário escolher.
     """
-    print(f"Buscando dados para: {name} safra {vintage}...")
     
-    # Lógica Simulada (MOCK) para o sistema funcionar hoje
-    # Tenta "adivinhar" o país pelo nome para popular as abas corretamente
-    name_lower = name.lower()
-    country = "Outros"
-    wine_type = "Tinto"
+    # Simulação de um banco de dados global (No futuro, isso vem da API Real)
+    # Isso resolve o problema de 'múltiplos resultados'
+    mock_database = [
+        {"name": "Chateau Margaux", "country": "França", "region": "Bordeaux", "sub": "Margaux"},
+        {"name": "Pavillon Rouge du Chateau Margaux", "country": "França", "region": "Bordeaux", "sub": "Margaux"},
+        {"name": "Catena Zapata Malbec Argentino", "country": "Argentina", "region": "Mendoza", "sub": "Uco Valley"},
+        {"name": "Solaia Antinori", "country": "Itália", "region": "Toscana", "sub": "Chianti"},
+        {"name": "Pera Manca", "country": "Portugal", "region": "Alentejo", "sub": "Évora"},
+    ]
+
+    results = []
     
-    if any(x in name_lower for x in ['chablis', 'bordeaux', 'latour', 'margaux', 'champagne', 'rhône']):
-        country = "França"
-    elif any(x in name_lower for x in ['barolo', 'toscana', 'brunello', 'chianti']):
-        country = "Itália"
-    elif any(x in name_lower for x in ['rioja', 'priorat', 'vega sicilia']):
-        country = "Espanha"
-    elif any(x in name_lower for x in ['douro', 'porto', 'alentejo']):
-        country = "Portugal"
+    # 1. Busca Exata ou Similaridade Alta (> 0.4)
+    for wine in mock_database:
+        similarity = similar(query_name, wine['name'])
         
-    if 'blanc' in name_lower or 'chardonnay' in name_lower or 'riesling' in name_lower:
-        wine_type = "Branco"
-
-    # Retorna dados estruturados
-    return {
-        'country': country,
-        'region': 'Região Desconhecida', # A API real preencheria isso
-        'type': wine_type,
-        'price': random.randint(200, 5000), # Preço simulado para fluxo de caixa
-        'score_rp': str(random.randint(88, 100)),
-        'score_ws': str(random.randint(85, 99)),
-        'drink_window_start': int(vintage) + 5 if vintage.isdigit() else 2025,
-        'drink_window_end': int(vintage) + 20 if vintage.isdigit() else 2035,
-    }
+        if query_name.lower() in wine['name'].lower() or similarity > 0.4:
+            # Simula dados que viriam da API paga
+            results.append({
+                'name': wine['name'],
+                'vintage': query_vintage,
+                'country': wine['country'],
+                'region': wine['region'],
+                'sub_region': wine['sub'],
+                'price': random.randint(200, 5000), # Mock de preço
+                'score_rp': str(random.randint(90, 100)),
+                'score_ws': str(random.randint(88, 98)),
+                'drink_from': int(query_vintage) + 5 if query_vintage.isdigit() else 2026,
+                'drink_to': int(query_vintage) + 25 if query_vintage.isdigit() else 2040,
+                'confidence': similarity # Para ordenar o melhor resultado primeiro
+            })
+    
+    # Ordena os resultados pelo mais parecido com o que o usuário digitou
+    results.sort(key=lambda x: x['confidence'], reverse=True)
+    
+    return results

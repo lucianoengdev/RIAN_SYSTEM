@@ -1,0 +1,19 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 text-center">
+        <div class="alert alert-danger shadow">
+            <h4>Tem certeza que deseja excluir?</h4>
+            <p class="lead">{{ wine.name }} ({{ wine.vintage }})</p>
+            <p>Esta ação não pode ser desfeita.</p>
+            
+            <form method="POST">
+                {% csrf_token %}
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary me-2">Cancelar</a>
+                <button type="submit" class="btn btn-danger">Sim, Excluir</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

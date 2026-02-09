@@ -1,167 +1,130 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Adega Rian System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .tab-active { border-bottom: 2px solid #4f46e5; color: #4f46e5; font-weight: 600; }
-        .tab-inactive { color: #6b7280; }
-        .tab-inactive:hover { color: #374151; }
-    </style>
-</head>
-<body class="bg-slate-50 min-h-screen font-sans">
+{% extends 'core/base.html' %}
 
-    <nav class="bg-indigo-900 text-white shadow-lg sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div>
-                <h1 class="text-xl font-bold tracking-wider">ADEGA DIGITAL</h1>
-                <p class="text-xs text-indigo-300">Valor Estimado em Caixa: <span class="text-white font-mono text-lg">R$ {{ total_value }}</span></p>
-            </div>
-            <div class="flex items-center gap-4">
-                <span class="text-sm opacity-80">Olá, {{ user.first_name }}</span>
-                <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="bg-indigo-800 px-3 py-1 rounded text-xs hover:bg-indigo-700">Sair</button></form>
-            </div>
-        </div>
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb m-0">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Início</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'region_list' country %}">{{ country }}</a></li>
+        <li class="breadcrumb-item active">{{ region }}</li>
+      </ol>
     </nav>
+    
+    <form class="d-flex" method="GET">
+        <input class="form-control form-control-sm me-2" type="search" name="q" placeholder="Buscar vinho..." value="{{ request.GET.q|default:'' }}">
+        <button class="btn btn-wine btn-sm" type="submit">Buscar</button>
+    </form>
+</div>
 
-    <main class="max-w-7xl mx-auto p-6">
-        
-        {% if is_admin %}
-            <div class="mt-4 pt-4 border-t border-gray-700">
-                <p class="mb-2 font-bold text-white">Importação Massiva (Admin):</p>
-                
-                <form action="{% url 'import_legacy' %}" method="post" enctype="multipart/form-data" class="flex flex-col gap-3 bg-gray-800 p-3 rounded">
-                    {% csrf_token %}
-                    
-                    <div class="flex flex-col">
-                        <label class="text-xs text-gray-400 mb-1">Selecione o Cliente Destino:</label>
-                        <select name="target_user" class="text-black text-sm rounded p-1" required>
-                            <option value="">-- Escolha um Cliente --</option>
-                            {% for u in all_users %}
-                            <option value="{{ u.id }}">{{ u.username }} ({{ u.first_name }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+<style>
+    .print-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .print-table th, .print-table td { border: 1px solid #000; padding: 4px; }
+    .print-table th { background-color: #ddd; text-align: center; }
+    .row-h { height: 22px; } /* Altura fixa para garantir alinhamento */
+    
+    @media print {
+        @page { size: A4; margin: 10mm; }
+        .page-break { page-break-after: always; }
+        .no-print { display: none !important; }
+        .table-striped>tbody>tr:nth-of-type(odd)>* { box-shadow: none; }
+    }
+</style>
 
-                    <div class="flex flex-col">
-                        <label class="text-xs text-gray-400 mb-1">Arquivo CSV (Use o LIMPO_...):</label>
-                        <input type="file" name="csv_file" class="text-xs text-gray-300" required>
-                    </div>
-
-                    <button type="submit" class="bg-green-700 hover:bg-green-600 px-4 py-2 rounded text-white text-sm font-bold self-start">
-                        Processar Importação
-                    </button>
-                </form>
-            </div>
+<div class="card border-0">
+    <h4 class="text-center mb-3">
+        {{ country }} - {{ region }}
+        {% if target_user != user %}
+            <br><small class="text-danger fs-6">(Visualizando adega de: {{ target_user.username }})</small>
         {% endif %}
-
-        <div class="flex justify-between items-end mb-6">
-            <div class="flex space-x-6 border-b border-gray-200 w-full overflow-x-auto" id="tabs-container">
-                <button onclick="filterCountry('all')" class="tab-active pb-2 px-1 text-sm transition" id="tab-all">TODOS</button>
-                {% for country in countries %}
-                <button onclick="filterCountry('{{ country }}')" class="tab-inactive pb-2 px-1 text-sm transition" id="tab-{{ country }}">{{ country|upper }}</button>
-                {% endfor %}
-            </div>
-            
-            <button onclick="document.getElementById('modal-add').classList.remove('hidden')" class="ml-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md flex items-center gap-2 text-sm font-bold whitespace-nowrap">
-                + Novo Vinho
-            </button>
-        </div>
-
-        <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-            <table class="w-full text-left border-collapse">
-                <thead class="bg-gray-100 text-gray-600 text-xs uppercase font-bold">
-                    <tr>
-                        <th class="p-4 border-b">Vinho</th>
-                        <th class="p-4 border-b text-center">Safra</th>
-                        <th class="p-4 border-b text-center">Tipo</th>
-                        <th class="p-4 border-b text-center">Nota R.P.</th>
-                        <th class="p-4 border-b text-center">Nota W.S.</th>
-                        <th class="p-4 border-b text-center">Beber</th>
-                        <th class="p-4 border-b text-center">Estoque</th>
-                        <th class="p-4 border-b text-right">Ações</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 text-sm">
-                    {% for wine in wines %}
-                    <tr class="hover:bg-indigo-50 transition wine-row" data-country="{{ wine.country }}">
-                        <td class="p-4 font-medium text-gray-900">{{ wine.name }}</td>
-                        <td class="p-4 text-center">{{ wine.vintage }}</td>
-                        <td class="p-4 text-center">
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold 
-                                {% if wine.type == 'Tinto' %}bg-red-100 text-red-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
-                                {{ wine.type }}
-                            </span>
-                        </td>
-                        <td class="p-4 text-center font-mono">{{ wine.score_rp|default:"-" }}</td>
-                        <td class="p-4 text-center font-mono">{{ wine.score_ws|default:"-" }}</td>
-                        <td class="p-4 text-center text-gray-500">{{ wine.drink_window_start|default:"?" }} - {{ wine.drink_window_end|default:"?" }}</td>
-                        <td class="p-4 text-center font-bold">{{ wine.quantity }}</td>
-                        <td class="p-4 text-right">
-                            <a href="{% url 'delete_wine' wine.id %}" class="text-red-400 hover:text-red-600 text-xs underline" onclick="return confirm('Tem certeza que bebeu/vendeu este vinho?')">Baixar</a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="8" class="p-8 text-center text-gray-400">Sua adega está vazia. Adicione um vinho acima.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </main>
-
-    <div id="modal-add" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50 backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
-            <h2 class="text-xl font-bold mb-1 text-gray-800">Adicionar à Adega</h2>
-            <p class="text-xs text-gray-500 mb-4">Os detalhes (Preço, País, Notas) serão buscados automaticamente.</p>
-            
-            <form action="{% url 'add_wine' %}" method="post" class="space-y-4">
-                {% csrf_token %}
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Nome do Vinho</label>
-                    <input type="text" name="name" required placeholder="Ex: Château Margaux" class="w-full mt-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Safra</label>
-                        <input type="text" name="vintage" required placeholder="Ex: 1990" class="w-full mt-1 border rounded-lg px-3 py-2 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Quantidade</label>
-                        <input type="number" name="quantity" value="1" min="1" class="w-full mt-1 border rounded-lg px-3 py-2 outline-none">
-                    </div>
-                </div>
+    </h4>
+    
+    <table class="print-table">
+        <thead>
+            <tr>
+                <th style="width: 35%">Vinho</th>
+                <th style="width: 10%">Safra</th>
+                <th style="width: 8%">RP</th>
+                <th style="width: 8%">WS</th>
+                <th style="width: 15%">Beber (Ano)</th>
+                <th style="width: 12%">Estoque</th>
+                {% if is_admin %}
+                <th style="width: 9%" class="no-print">Preço</th>
+                {% endif %}
+                <th style="width: 5%" class="no-print">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for wine in page_obj %}
+            <tr class="row-h">
+                <td>{{ wine.name }}</td>
+                <td class="text-center">{{ wine.vintage }}</td>
+                <td class="text-center">{{ wine.score_rp|default:"-" }}</td>
+                <td class="text-center">{{ wine.score_ws|default:"-" }}</td>
+                <td class="text-center">
+                    {% if wine.drink_from and wine.drink_to %}
+                        {{ wine.drink_from }}-{{ wine.drink_to }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
                 
-                <div class="flex justify-end gap-3 mt-6">
-                    <button type="button" onclick="document.getElementById('modal-add').classList.add('hidden')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-                    <button type="submit" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow">Buscar e Salvar</button>
-                </div>
-            </form>
-        </div>
+                <td class="text-center">
+                    <div class="d-flex justify-content-center align-items-center no-print">
+                        <form action="{% url 'update_stock' wine.id %}" method="POST" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="decrease">
+                            <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-1" style="font-size: 10px; line-height: 1;">-</button>
+                        </form>
+                        
+                        <span class="mx-2 fw-bold">{{ wine.quantity }}</span>
+                        
+                        <form action="{% url 'update_stock' wine.id %}" method="POST" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="increase">
+                            <button type="submit" class="btn btn-sm btn-outline-success py-0 px-1" style="font-size: 10px; line-height: 1;">+</button>
+                        </form>
+                    </div>
+                    
+                    <span class="d-none d-print-inline">{{ wine.quantity }}</span>
+                </td>
+
+                {% if is_admin %}
+                <td class="text-end no-print">R$ {{ wine.price }}</td>
+                {% endif %}
+                
+                <td class="text-center no-print">
+                    <a href="{% url 'delete_wine' wine.id %}" class="text-danger text-decoration-none" title="Excluir Vinho">
+                        🗑️
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+
+            {% for i in empty_rows %}
+            <tr class="row-h">
+                <td>&nbsp;</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                {% if is_admin %}<td class="no-print"></td>{% endif %}
+                <td class="no-print"></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="d-flex justify-content-center mt-3 no-print">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}" class="btn btn-sm btn-outline-secondary me-2">Anterior</a>
+        {% endif %}
+        
+        <span class="align-self-center">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+        
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}" class="btn btn-sm btn-outline-secondary ms-2">Próxima</a>
+        {% endif %}
     </div>
-
-    <script>
-        function filterCountry(country) {
-            const rows = document.querySelectorAll('.wine-row');
-            const buttons = document.querySelectorAll('#tabs-container button');
-            
-            // Atualiza visual dos botões
-            buttons.forEach(btn => {
-                btn.classList.remove('tab-active');
-                btn.classList.add('tab-inactive');
-            });
-            document.getElementById('tab-' + country).classList.add('tab-active');
-            document.getElementById('tab-' + country).classList.remove('tab-inactive');
-
-            // Filtra linhas
-            rows.forEach(row => {
-                if (country === 'all' || row.dataset.country === country) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-        }
-    </script>
-</body>
-</html>
+</div>
+{% endblock %}

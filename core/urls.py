@@ -4,8 +4,8 @@ from . import views
 urlpatterns = [
     # Painéis Principais
     path('', views.dashboard, name='dashboard'),
-    path('clientes/', views.client_list, name='client_list'), # Nova rota Admin
-    path('cliente/<int:user_id>/', views.dashboard, name='client_dashboard'), # Admin vendo Cliente
+    path('clientes/', views.client_list, name='client_list'), 
+    path('cliente/<int:user_id>/', views.dashboard, name='client_dashboard'), 
 
     # Navegação Hierárquica (Suporta user_id opcional para Admin)
     path('adega/<str:country_name>/', views.region_list, name='region_list'),
